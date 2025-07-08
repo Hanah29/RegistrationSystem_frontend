@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+import emailjs from "emailjs-com"
 import { useState, useEffect } from "react"
 import {
   FaEye,
@@ -37,10 +38,8 @@ const registrationWindowSchema = z
         { message: "Start date cannot be in the past" },
       ),
 
-    endDate: z.string().min(1, { message: "End date is required" }),
-
-    isOpen: z.boolean(),
-
+    endDate: z.string().min(1, { message: "End date is required" }), 
+    isOpen: z.boolean(), 
     description: z.string().optional(),
   })
   .refine(
@@ -93,8 +92,7 @@ const RegistrationManagementTab: React.FC = () => {
       const [registrationsResponse, windowResponse] = await Promise.all([
         getAllRegistrations(),
         getCurrentRegistrationWindow(),
-      ])
-
+      ]) 
       setRegistrations(registrationsResponse.data || [])
       setCurrentWindow(windowResponse)
     } catch (error) {
@@ -127,7 +125,7 @@ const RegistrationManagementTab: React.FC = () => {
   const handleDeleteRegistration = async (registration: any) => {
     if (!canDeleteRegistration(registration)) {
       setValidationMessage(
-        `Cannot delete registration for ${registration.student?.firstName} ${registration.student?.lastName}. ` +
+        `Cannot delete registration for ${registration.student?.firstName || registration.student?.name} ${registration.student?.lastName || ""}. ` +
           `Active registrations cannot be deleted. The student must drop the course first, ` +
           `which will change the status to "Inactive", then you can delete it.`,
       )
@@ -138,7 +136,7 @@ const RegistrationManagementTab: React.FC = () => {
     const statusText = registration.status === "Pending" ? "pending" : "inactive"
     if (
       window.confirm(
-        `Are you sure you want to delete this ${statusText} registration for ${registration.student?.firstName} ${registration.student?.lastName}? ` +
+        `Are you sure you want to delete this ${statusText} registration for ${registration.student?.firstName || registration.student?.name} ${registration.student?.lastName || ""}? ` +
           `This action cannot be undone.`,
       )
     ) {
@@ -153,10 +151,106 @@ const RegistrationManagementTab: React.FC = () => {
     }
   }
 
-  // Update registration status
-  const updateStatus = async (id: string, status: string) => {
+  // Initialize EmailJS (call this once when component mounts)
+  useEffect(() => {
+    // Initialize EmailJS with your public key
+    emailjs.init("yviG4X5Bh3a4Gd17v")
+  }, [])
+
+  
+  const sendEmail = async (registration: any, status: string) => {
     try {
-      await updateRegistrationStatus(id, status)
+      console.log(" Registration data:", registration)
+
+      // Extract student information with fallbacks
+      const studentEmail = registration.student?.email
+      const studentName = registration.student?.firstName || registration.student?.name || "Student"
+      const studentLastName = registration.student?.lastName || ""
+      const fullStudentName = `${studentName} ${studentLastName}`.trim()
+      const courseTitle = registration.course?.title || "Course"
+
+      console.log("Email details:")
+      console.log("- To Email:", studentEmail)
+      console.log("- Student Name:", fullStudentName)
+      console.log("- Course:", courseTitle)
+      console.log("- Status:", status)
+
+      // Validate email exists
+      if (!studentEmail) {
+        console.error(" No student email found")
+        alert("Cannot send email: Student email not found")
+        return
+      }
+
+      // Choose template and create message based on status
+      let templateId = ""
+      let subject = ""
+
+      if (status === "Active") {
+        // Use approval template
+        templateId = "template_wprisva" 
+        subject = `Registration Approved - ${courseTitle}`
+      } else if (status === "Inactive") {
+        // Use rejection template
+        templateId = "template_1yj65jm" 
+        subject = `Registration Update - ${courseTitle}`
+      }
+
+      // Template parameters for EmailJS
+      const templateParams = {
+        to_name: fullStudentName,
+        to_email: studentEmail,
+        subject: subject,
+        student_name: fullStudentName,
+        course_title: courseTitle,
+        course_crn: registration.course?.crn || "N/A",
+      }
+
+      console.log(" Template params:", templateParams)
+      console.log(" Using template:", templateId)
+
+      // Send email using EmailJS with the appropriate template
+      const result = await emailjs.send(
+        "service_u7a64ft", 
+        templateId, // Dynamic template ID based on status
+        templateParams,
+      )
+
+      console.log(" Email sent successfully:", result)
+      alert(`${status === "Active" ? "Approval" : "Update"} email sent successfully to ${studentEmail}!`)
+    } catch (error: any) {
+      console.error(" Failed to send email:", error)
+
+      // More specific error messages
+      if (error.text) {
+        console.error("EmailJS Error:", error.text)
+        if (error.text.includes("Account not found")) {
+          alert("EmailJS Error: Account not found. Please check your EmailJS configuration.")
+        } else if (error.text.includes("Template not found")) {
+          alert("EmailJS Error: Template not found. Please check your template ID.")
+        } else if (error.text.includes("Service not found")) {
+          alert("EmailJS Error: Service not found. Please check your service ID.")
+        } else {
+          alert(`Failed to send email notification: ${error.text}`)
+        }
+      } else {
+        alert("Failed to send email notification. Please check your EmailJS configuration.")
+      }
+    }
+  }
+
+  // Update registration status
+  const updateStatus = async (registration: any, newStatus: string) => {
+    try {
+      console.log("🔄 Updating status for:", registration)
+
+      await updateRegistrationStatus(registration._id, newStatus)
+
+      // Send email notification after successful status update
+      if (newStatus === "Active" || newStatus === "Inactive") {
+        await sendEmail(registration, newStatus)
+      }
+
       await fetchData() // Refresh data
     } catch (error) {
       console.error("Error updating registration status:", error)
@@ -173,8 +267,7 @@ const RegistrationManagementTab: React.FC = () => {
         await createRegistrationWindow(data)
         alert("Registration window created successfully!")
       }
-
-      await fetchData()
+      await fetchData() 
       setShowWindowForm(false)
       reset()
     } catch (error) {
@@ -217,8 +310,7 @@ const RegistrationManagementTab: React.FC = () => {
               {currentWindow ? "Edit Window" : "Create Window"}
             </button>
           </div>
-        </div>
-
+        </div> 
         {currentWindow ? (
           <div className="p-4 bg-gray-50 rounded-lg">
             <div className="flex items-center justify-between">
@@ -290,8 +382,7 @@ const RegistrationManagementTab: React.FC = () => {
 
       {/* Student Registrations Table */}
       <div className="bg-white rounded-lg shadow-md p-6">
-        <h3 className="text-lg font-semibold text-[#424747] mb-4">Student Registrations</h3>
-
+        <h3 className="text-lg font-semibold text-[#424747] mb-4">Student Registrations</h3> 
         {registrations.length > 0 ? (
           <div className="space-y-3 max-h-80 overflow-y-auto pr-2">
             {registrations.map((registration: any) => (
@@ -311,7 +402,8 @@ const RegistrationManagementTab: React.FC = () => {
                   ></div>
                   <div className="flex-1">
                     <p className="font-medium text-[#424747]">
-                      {registration.student?.firstName} {registration.student?.lastName}
+                      {registration.student?.firstName || registration.student?.name}{" "}
+                      {registration.student?.lastName || ""}
                     </p>
                     <p className="text-sm text-gray-600">{registration.student?.email}</p>
                     <p className="text-sm text-gray-600">{registration.course?.title || "N/A"}</p>
@@ -321,7 +413,7 @@ const RegistrationManagementTab: React.FC = () => {
                 <div className="flex items-center space-x-3">
                   <select
                     value={registration.status}
-                    onChange={(e) => updateStatus(registration._id, e.target.value)}
+                    onChange={(e) => updateStatus(registration, e.target.value)}
                     className={`px-3 py-1 rounded-full text-sm font-medium border ${
                       registration.status === "Active"
                         ? "bg-green-100 text-green-800 border-green-200"
@@ -335,7 +427,9 @@ const RegistrationManagementTab: React.FC = () => {
                     <option value="Inactive">Inactive</option>
                   </select>
                   <div className="text-right">
-                    <p className="text-xs text-gray-500">{new Date(registration.createdAt).toLocaleDateString()}</p>
+                    <p className="text-xs text-gray-500">
+                      {new Date(registration.createdAt || registration.registrationDate).toLocaleDateString()}
+                    </p>
                   </div>
                   <div className="flex space-x-2">
                     <button
@@ -383,8 +477,7 @@ const RegistrationManagementTab: React.FC = () => {
           <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
             <h3 className="text-xl font-bold text-[#424747] mb-4">
               {currentWindow ? "Edit Registration Window" : "Create Registration Window"}
-            </h3>
-
+            </h3> 
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-[#424747] mb-1">Start Date *</label>
@@ -396,8 +489,7 @@ const RegistrationManagementTab: React.FC = () => {
                   }`}
                 />
                 {errors.startDate && <p className="text-red-500 text-sm mt-1">{errors.startDate.message}</p>}
-              </div>
-
+              </div> 
               <div>
                 <label className="block text-sm font-medium text-[#424747] mb-1">End Date *</label>
                 <input
@@ -408,8 +500,7 @@ const RegistrationManagementTab: React.FC = () => {
                   }`}
                 />
                 {errors.endDate && <p className="text-red-500 text-sm mt-1">{errors.endDate.message}</p>}
-              </div>
-
+              </div> 
               <div>
                 <label className="block text-sm font-medium text-[#424747] mb-1">Description</label>
                 <textarea
@@ -418,8 +509,7 @@ const RegistrationManagementTab: React.FC = () => {
                   rows={3}
                   placeholder="Optional description for this registration window..."
                 />
-              </div>
-
+              </div> 
               <div className="flex items-center">
                 <input
                   type="checkbox"
@@ -427,8 +517,7 @@ const RegistrationManagementTab: React.FC = () => {
                   className="mr-2 h-4 w-4 text-[#424747] focus:ring-[#424747] border-gray-300 rounded"
                 />
                 <label className="text-sm text-[#424747]">Registration window is open</label>
-              </div>
-
+              </div> 
               <div className="flex justify-end space-x-4 mt-6">
                 <button
                   type="button"
@@ -457,17 +546,18 @@ const RegistrationManagementTab: React.FC = () => {
       {showViewModal && selectedRegistration && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white p-6 rounded-lg shadow-lg max-w-lg w-full max-h-[90vh] overflow-y-auto">
-            <h3 className="text-xl font-bold text-[#424747] mb-4">Registration Details</h3>
-
+            <h3 className="text-xl font-bold text-[#424747] mb-4">Registration Details</h3> 
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <span className="font-medium text-[#424747]">First Name:</span>
-                  <p className="text-[#424747CC]">{selectedRegistration.student?.firstName}</p>
+                  <p className="text-[#424747CC]">
+                    {selectedRegistration.student?.firstName || selectedRegistration.student?.name}
+                  </p>
                 </div>
                 <div>
                   <span className="font-medium text-[#424747]">Last Name:</span>
-                  <p className="text-[#424747CC]">{selectedRegistration.student?.lastName}</p>
+                  <p className="text-[#424747CC]">{selectedRegistration.student?.lastName || ""}</p>
                 </div>
                 <div>
                   <span className="font-medium text-[#424747]">Email:</span>
@@ -515,8 +605,7 @@ const RegistrationManagementTab: React.FC = () => {
                     {selectedRegistration.status}
                   </span>
                 </div>
-              </div>
-
+              </div> 
               {selectedRegistration.course && (
                 <div className="mt-4 p-4 bg-gray-50 rounded-lg">
                   <span className="font-medium text-[#424747]">Course Details:</span>
@@ -525,14 +614,14 @@ const RegistrationManagementTab: React.FC = () => {
                   <p className="text-sm text-[#424747CC]">Credits: {selectedRegistration.course.credits}</p>
                   <p className="text-sm text-[#424747CC]">Price: {selectedRegistration.course.price}</p>
                 </div>
-              )}
-
+              )} 
               <div>
                 <span className="font-medium text-[#424747]">Registration Date:</span>
-                <p className="text-[#424747CC]">{new Date(selectedRegistration.createdAt).toLocaleString()}</p>
+                <p className="text-[#424747CC]">
+                  {new Date(selectedRegistration.createdAt || selectedRegistration.registrationDate).toLocaleString()}
+                </p>
               </div>
-            </div>
-
+            </div> 
             <div className="flex justify-end mt-6">
               <button
                 className="px-4 py-2 bg-[#424747] text-white rounded hover:bg-[#424747CC] transition-colors"
@@ -552,10 +641,8 @@ const RegistrationManagementTab: React.FC = () => {
             <div className="flex items-center mb-4">
               <FaExclamationTriangle className="text-red-500 mr-3" size={24} />
               <h3 className="text-xl font-bold text-[#424747]">Action Not Allowed</h3>
-            </div>
-
-            <p className="text-[#424747] mb-6">{validationMessage}</p>
-
+            </div> 
+            <p className="text-[#424747] mb-6">{validationMessage}</p> 
             <div className="flex justify-end">
               <button
                 className="px-4 py-2 bg-[#424747] text-white rounded hover:bg-[#424747CC] transition-colors"

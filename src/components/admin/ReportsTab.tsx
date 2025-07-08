@@ -53,20 +53,149 @@ const ReportsTab: React.FC = () => {
     setFilteredRegistrations(filtered)
   }
 
-  const generateReport = (format: "excel" | "pdf") => {
-    const reportData = {
-      totalRecords: filteredRegistrations.length,
-      filters: {
-        status: statusFilter,
-        course: courseFilter !== "all" ? courses.find((c) => c._id === courseFilter)?.title : "All Courses",
-      },
-      data: filteredRegistrations,
-      generatedAt: new Date().toISOString(),
-    }
+  const generateExcelReport = async () => {
+    try {
+      const XLSX = await import("xlsx")
 
-    // This would implement actual report generation
-    console.log(`Generating ${format.toUpperCase()} report:`, reportData)
-    alert(`Generating ${format.toUpperCase()} report with ${filteredRegistrations.length} records`)
+      // Prepare data for Excel
+      const excelData = filteredRegistrations.map((reg, index) => ({
+        "No.": index + 1,
+        "Student Name": `${reg.student?.firstName || reg.student?.name || ""} ${reg.student?.lastName || ""}`.trim(),
+        Email: reg.student?.email || "",
+        Phone: reg.phone || "",
+        Course: reg.course?.title || "",
+        CRN: reg.course?.crn || "",
+        Status: reg.status || "",
+        Gender: reg.gender || "",
+        Schedule: reg.schedule || "",
+        Mode: reg.mode || "",
+        Location: reg.location || "",
+        "PC/Desktop": reg.hasPcDesktop || "",
+        Referral: reg.referral || "",
+        "Registration Date": reg.createdAt ? new Date(reg.createdAt).toLocaleDateString() : "",
+      }))
+
+      // Create workbook and worksheet
+      const wb = XLSX.utils.book_new()
+      const ws = XLSX.utils.json_to_sheet(excelData)
+
+      // Set column widths
+      const colWidths = [
+        { wch: 5 }, // No.
+        { wch: 20 }, // Student Name
+        { wch: 25 }, // Email
+        { wch: 15 }, // Phone
+        { wch: 20 }, // Course
+        { wch: 10 }, // CRN
+        { wch: 10 }, // Status
+        { wch: 10 }, // Gender
+        { wch: 15 }, // Schedule
+        { wch: 10 }, // Mode
+        { wch: 15 }, // Location
+        { wch: 12 }, // PC/Desktop
+        { wch: 15 }, // Referral
+        { wch: 15 }, // Registration Date
+      ]
+      ws["!cols"] = colWidths
+
+      // Add worksheet to workbook
+      XLSX.utils.book_append_sheet(wb, ws, "Registrations")
+
+      // Generate filename with current date
+      const currentDate = new Date().toISOString().split("T")[0]
+      const filename = `Qemer_Registration_Report_${currentDate}.xlsx`
+
+      // Save file
+      XLSX.writeFile(wb, filename)
+
+      alert(`Excel report generated successfully! File saved as: ${filename}`)
+    } catch (error) {
+      console.error("Error generating Excel report:", error)
+      alert("Error generating Excel report. Please make sure the xlsx library is installed.")
+    }
+  }
+
+  const generatePdfReport = async () => {
+    try {
+      const jsPDF = (await import("jspdf")).default
+      const autoTable = (await import("jspdf-autotable")).default
+
+      const doc = new jsPDF()
+
+      // Add title
+      doc.setFontSize(20)
+      doc.text("Qemer Training Center", 20, 20)
+      doc.setFontSize(16)
+      doc.text("Registration Report", 20, 30)
+
+      // Add generation info
+      doc.setFontSize(10)
+      doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 20, 40)
+      doc.text(`Total Records: ${filteredRegistrations.length}`, 20, 45)
+
+      // Add filter info
+      let filterText = "Filters Applied: "
+      if (statusFilter !== "all") {
+        filterText += `Status: ${statusFilter} `
+      }
+      if (courseFilter !== "all") {
+        const courseName = courses.find((c) => c._id === courseFilter)?.title || "Unknown"
+        filterText += `Course: ${courseName}`
+      }
+      if (statusFilter === "all" && courseFilter === "all") {
+        filterText += "None"
+      }
+      doc.text(filterText, 20, 50)
+
+      // Prepare table data
+      const tableData = filteredRegistrations.map((reg, index) => [
+        index + 1,
+        `${reg.student?.firstName || reg.student?.name || ""} ${reg.student?.lastName || ""}`.trim(),
+        reg.student?.email || "",
+        reg.course?.title || "",
+        reg.course?.crn || "",
+        reg.status || "",
+        reg.createdAt ? new Date(reg.createdAt).toLocaleDateString() : "",
+      ])
+
+      // Add table using autoTable
+      autoTable(doc, {
+        head: [["No.", "Student Name", "Email", "Course", "CRN", "Status", "Date"]],
+        body: tableData,
+        startY: 60,
+        styles: {
+          fontSize: 8,
+          cellPadding: 2,
+        },
+        headStyles: {
+          fillColor: [66, 71, 71],
+          textColor: 255,
+        },
+        alternateRowStyles: {
+          fillColor: [245, 245, 245],
+        },
+      })
+
+      // Generate filename with current date
+      const currentDate = new Date().toISOString().split("T")[0]
+      const filename = `Qemer_Registration_Report_${currentDate}.pdf`
+
+      // Save file
+      doc.save(filename)
+
+      alert(`PDF report generated successfully! File saved as: ${filename}`)
+    } catch (error) {
+      console.error("Error generating PDF report:", error)
+      alert("Error generating PDF report. Please make sure jspdf and jspdf-autotable libraries are installed.")
+    }
+  }
+
+  const generateReport = (format: "excel" | "pdf") => {
+    if (format === "excel") {
+      generateExcelReport()
+    } else if (format === "pdf") {
+      generatePdfReport()
+    }
   }
 
   const getStatusStats = () => {
