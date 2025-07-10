@@ -1,54 +1,39 @@
-# React + TypeScript + Vite
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Qemer Training Center - Registration System  
 
-Currently, two official plugins are available:
+A modern web app for course registrations built with React, TypeScript, and Vite.  
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+# Key Features  
+- Students: Browse courses, register, track status  
+- Admins: Manage registrations, courses, generate reports (Excel/PDF), email notifications  
+- Responsive: Works on all devices  
 
-## Expanding the ESLint configuration
+# Tech Stack  
+- Frontend: React 18 + TypeScript  
+- Styling: Tailwind CSS  
+- Forms: React Hook Form + Zod  
+- Email: EmailJS  
+- Exports: `xlsx` (Excel), `jspdf` (PDF)  
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+#Quick Start  
+1. Clone repo & install deps:  
+      bash
+   git clone https://github.com/Hanah29/RegistrationSystem_frontend.git
+   cd final_project
+   npm install
+   
+2. Add .env file with EmailJS keys and API URL  
+3. Run:  
+   bash
+   npm run dev  
+   npm run build  
+   
 
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
-```
+# Core Structure  
+- Student: Course catalog, registration form, dashboard  
+- Admin: Registration/course management, reports, analytics  
+- Services: API calls, auth, email logic  
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+# License  
+MIT © Qemer Training Center  
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default tseslint.config({
-  plugins: {
-    // Add the react-x and react-dom plugins
-    'react-x': reactX,
-    'react-dom': reactDom,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended typescript rules
-    ...reactX.configs['recommended-typescript'].rules,
-    ...reactDom.configs.recommended.rules,
-  },
-})
-```
